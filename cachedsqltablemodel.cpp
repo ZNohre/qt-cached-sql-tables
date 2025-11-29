@@ -436,34 +436,33 @@ bool CachedSqlTableModel::revertAll()
 {
     bool changed = false;
 
-    for (int row = 0; row < m_cache.count(); ++row) {
+    // Iterate backwards to safely remove rows
+    for (int row = m_cache.count() - 1; row >= 0; --row) {
         CachedRow &cr = m_cache[row];
 
         switch (cr.op()) {
-        case CachedRow::Insert:
-            // Discard new rows entirely
-            m_cache.removeAt(row);
-            --row; // Adjust index after removal
-            changed = true;
-            break;
-        case CachedRow::Update:
-            cr.revert(); // Reverts to None and restores m_rec = m_db_values
-            changed = true;
-            break;
-        case CachedRow::Delete:
-            cr.revert(); // Reverts to None and restores m_rec = m_db_values
-            changed = true;
-            break;
-        case CachedRow::None:
-            break; // Already clean
+            case CachedRow::Insert:
+                beginRemoveRows(QModelIndex(), row, row);
+                m_cache.removeAt(row);
+                endRemoveRows();
+                changed = true;
+                break;
+            case CachedRow::Update:
+                cr.revert(); // Reset to None and restore db values
+                dataChanged(index(row, 0), index(row, columnCount() - 1));
+                changed = true;
+                break;
+            case CachedRow::Delete:
+                cr.revert(); // Reset to None and restore db values
+                dataChanged(index(row, 0), index(row, columnCount() - 1));
+                changed = true;
+                break;
+            case CachedRow::None:
+                break;
         }
     }
 
-    //Notify views of any changes
-    if (changed)
-        emit layoutChanged();
-
-    return true;
+    return changed;
 }
 
 void CachedSqlTableModel::clear()
