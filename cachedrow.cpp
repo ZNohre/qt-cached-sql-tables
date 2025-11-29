@@ -1,10 +1,22 @@
 #include "cachedrow.h"
 
+#include <QSqlField>
+
 CachedRow::CachedRow(Op o, const QSqlRecord &r)
     : m_op(None)
     , m_db_values(r)
     , m_insert(o == Insert)
 {
+    // Initialize m_rec from db_values
+    m_rec = m_db_values;
+
+    // Ensure auto-increment fields are never marked generated
+    for (int i = 0; i < m_rec.count(); ++i) {
+        if (m_rec.field(i).isAutoValue()) {
+            m_rec.setGenerated(i, false);
+        }
+    }
+
     setOp(o);
 }
 
@@ -46,7 +58,11 @@ void CachedRow::setValue(int c, const QVariant &v)
 {
     m_submitted = false;
     m_rec.setValue(c, v);
-    m_rec.setGenerated(c, true);
+
+    //Prevent generated flags being set on auto value columns
+    if (!m_rec.field(c).isAutoValue()) {
+        m_rec.setGenerated(c, true);
+    }
 
     if (m_op == None) {
         m_op = Update;   // mark row dirty
@@ -114,8 +130,13 @@ QSqlRecord CachedRow::primaryValues(const QSqlRecord &pi) const
 
 void CachedRow::setGenerated(QSqlRecord &r, bool g)
 {
-    for (int i = r.count() - 1; i >= 0; --i)
-        r.setGenerated(i, g);
+    for (int i = r.count() - 1; i >= 0; --i) {
+        if (!r.field(i).isAutoValue()) {
+            r.setGenerated(i, g);
+        } else {
+            r.setGenerated(i, false); // force auto value fields to remain false
+        }
+    }
 }
 
 CachedRow::Op CachedRow::op() const {

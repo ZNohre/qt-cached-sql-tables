@@ -101,10 +101,10 @@ bool CachedSqlTableModel::setData(const QModelIndex &index, const QVariant &valu
 
     if(role == Qt::EditRole){
 
-        //Confirm that the data truly changed to avoid setting generated flags except when necessary
+        //Confirm that the data truly changed to avoid setting generated flags except when not necessary
         QVariant oldValue = data(index, role);
 
-        if(value == oldValue)
+        if(QVariant::compare(value, oldValue) == QPartialOrdering::Equivalent)
             return false;
 
         //Update data structure
@@ -319,6 +319,11 @@ bool CachedSqlTableModel::select()
     m_fetchedCount = 0;
     m_queryExhausted = false;
 
+    //Force NULL values for base record to allow setData generated flag to accurately track updates
+    for (int i = 0; i < m_record.count(); ++i) {
+        m_record.setValue(i, QVariant());
+    }
+
     // Detect auto column
     for (int i = 0; i < m_record.count(); ++i) {
         if (m_record.field(i).isAutoValue()) {
@@ -353,6 +358,7 @@ bool CachedSqlTableModel::submitAll()
 
         switch (cr.op()) {
         case CachedRow::Insert:
+
             success = insertRowInTable(cr.rec());
 
             if (success) {
