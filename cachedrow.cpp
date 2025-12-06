@@ -5,18 +5,7 @@
 CachedRow::CachedRow(Op o, const QSqlRecord &r)
     : m_op(None)
     , m_db_values(r)
-    , m_insert(o == Insert)
 {
-    // Initialize m_rec from db_values
-    m_rec = m_db_values;
-
-    // Ensure auto-increment fields are never marked generated
-    for (int i = 0; i < m_rec.count(); ++i) {
-        if (m_rec.field(i).isAutoValue()) {
-            m_rec.setGenerated(i, false);
-        }
-    }
-
     setOp(o);
 }
 
@@ -26,7 +15,7 @@ void CachedRow::setOp(Op o)
     if (o == None) {
         m_submitted = true;
         m_op = None;
-        m_rec = m_db_values;   // ensure rec is populated
+        m_rec = m_db_values;   //Ensure that rec is populated from db_values to present in cached model
         setGenerated(m_rec, false);
         return;
     }
@@ -41,7 +30,8 @@ void CachedRow::setOp(Op o)
     setGenerated(m_rec, m_op == Delete);
 }
 
-const QSqlRecord &CachedRow::rec() const {
+const QSqlRecord &CachedRow::rec() const
+{
     return m_rec;
 }
 
@@ -56,16 +46,17 @@ QVariant CachedRow::value(int column) const
 
 void CachedRow::setValue(int c, const QVariant &v)
 {
+    //Flag row as having changes and assign the new value to the record
     m_submitted = false;
     m_rec.setValue(c, v);
 
-    //Prevent generated flags being set on auto value columns
+    //Check to ensure we're not operating on an auto increment field, setting the generated flag if not
     if (!m_rec.field(c).isAutoValue()) {
         m_rec.setGenerated(c, true);
     }
 
     if (m_op == None) {
-        m_op = Update;   // mark row dirty
+        m_op = Update;   //Mark row dirty
     }
     // Insert stays Insert, Update stays Update, Delete ignored
 }
@@ -76,35 +67,18 @@ bool CachedRow::submitted() const {
 
 void CachedRow::setSubmitted()
 {
+    //Mark the row as submitted and reset generated flags
     m_submitted = true;
     setGenerated(m_rec, false);
 
+    //If the record was flagged as a delete, remove all record values
     if (m_op == Delete) {
         m_rec.clearValues();
-    }
-    else {
+    } else {
+        //Otherwise, return state to None and assign the db_values to the submitted rec values
         m_op = None;
         m_db_values = m_rec;
     }
-}
-
-void CachedRow::refresh(bool exists, const QSqlRecord &newvals)
-{
-    m_submitted = true;
-    if (exists) {
-        m_op = None;
-        m_db_values = newvals;
-        m_rec = newvals;
-        setGenerated(m_rec, false);
-    } else {
-        m_op = Delete;
-        m_rec.clear();
-        m_db_values.clear();
-    }
-}
-
-bool CachedRow::insert() const {
-    return m_insert;
 }
 
 void CachedRow::revert()

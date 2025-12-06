@@ -29,8 +29,7 @@ public:
 
     bool submitted() const;
     void setSubmitted();
-    void refresh(bool exists, const QSqlRecord& newvals);
-    bool insert() const;
+
     void revert();
     QSqlRecord primaryValues(const QSqlRecord& pi) const;
 
@@ -41,7 +40,6 @@ private:
     QSqlRecord m_rec;
     QSqlRecord m_db_values;
     bool m_submitted;
-    bool m_insert;
 };
 
 #endif // CACHEDROW_H
